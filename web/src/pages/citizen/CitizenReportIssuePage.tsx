@@ -40,7 +40,7 @@ const AI_STEPS = [
   { icon: BrainCircuit, label: 'Running neural classification model...', color: 'text-purple-400' },
   { icon: Cpu, label: 'Verifying against municipal database...', color: 'text-amber-400' },
   { icon: MapPin, label: 'Cross-checking geo-spatial hotspot data...', color: 'text-rose-400' },
-  { icon: BadgeCheck, label: 'Issue verified. Routing to department...', color: 'text-emerald-400' },
+  { icon: BadgeCheck, label: 'Generating AI validation assessment & audit log...', color: 'text-emerald-400' },
 ];
 
 interface DeviceLocation {
@@ -79,6 +79,11 @@ export const CitizenReportIssuePage: React.FC = () => {
   const [aiProcessing, setAiProcessing] = useState<boolean>(false);
   const [aiStepIndex, setAiStepIndex] = useState<number>(0);
   const [aiStepDone, setAiStepDone] = useState<boolean[]>([]);
+
+  // AI Classification State
+  const [aiDetectedCategory, setAiDetectedCategory] = useState<string | null>(null);
+  const [aiConfidence, setAiConfidence] = useState<number>(0);
+  const [classifyingAi, setClassifyingAi] = useState<boolean>(false);
 
   // Submission State
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -146,6 +151,7 @@ export const CitizenReportIssuePage: React.FC = () => {
         setImageFile(file);
         setImagePreview(url);
         closeCamera();
+        classifySelectedImage(file);
 
         // Auto get location if not yet acquired
         if (locationStatus === 'idle') {
@@ -242,6 +248,26 @@ export const CitizenReportIssuePage: React.FC = () => {
   // --------------------------------------------------------------------------
   // File Upload Handler
   // --------------------------------------------------------------------------
+  const classifySelectedImage = useCallback(async (file: File) => {
+    setClassifyingAi(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await citizenApi.classifyImage(fd);
+      if (res.data?.category) {
+        setAiDetectedCategory(res.data.category);
+        setAiConfidence(res.data.confidence || 0.9);
+        if (CATEGORIES.some((c) => c.id === res.data.category)) {
+          setCategory(res.data.category);
+        }
+      }
+    } catch {
+      // Graceful fallback
+    } finally {
+      setClassifyingAi(false);
+    }
+  }, []);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -253,6 +279,7 @@ export const CitizenReportIssuePage: React.FC = () => {
       const url = URL.createObjectURL(file);
       setImagePreview(url);
       setErrorMessage(null);
+      classifySelectedImage(file);
 
       if (locationStatus === 'idle') {
         handleGetLocation();
@@ -262,6 +289,8 @@ export const CitizenReportIssuePage: React.FC = () => {
 
   const removePhoto = () => {
     setImageFile(null);
+    setAiDetectedCategory(null);
+    setAiConfidence(0);
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
       setImagePreview(null);
@@ -347,6 +376,12 @@ export const CitizenReportIssuePage: React.FC = () => {
 
       if (imageFile) {
         formData.append('image', imageFile);
+      }
+
+      if (aiDetectedCategory) {
+        formData.append('aiDetectedCategory', aiDetectedCategory);
+        formData.append('aiConfidence', (aiConfidence || 0.9).toString());
+        formData.append('isCategoryOverridden', (category !== aiDetectedCategory).toString());
       }
 
       const res = await citizenApi.createReport(formData);
@@ -849,9 +884,40 @@ export const CitizenReportIssuePage: React.FC = () => {
                   <p className="text-[11px] text-slate-400 truncate mt-0.5">
                     {imageFile?.name || 'Captured Photo'}
                   </p>
-                  <span className="inline-block mt-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Neural Verification Ready
-                  </span>
+                  {classifyingAi ? (
+                    <span className="inline-block mt-1 text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 animate-pulse">
+                      Running PyTorch Vision Model...
+                    </span>
+                  ) : aiDetectedCategory === 'irrelevant' ? (
+                    <div className="mt-1 space-y-1">
+                      <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 font-bold">
+                        ❌ AI Warning: Non-civic image detected (will be rejected by validation)
+                      </span>
+                    </div>
+                  ) : aiDetectedCategory && aiDetectedCategory !== category && !(aiDetectedCategory === 'road_damage' && category === 'pothole') ? (
+                    <div className="mt-1 space-y-1">
+                      <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-semibold">
+                        ⚠️ Mismatch: AI detected '{aiDetectedCategory.replace('_', ' ')}' ({Math.round(aiConfidence * 100)}%) vs '{category.replace('_', ' ')}'
+                      </span>
+                      {CATEGORIES.some(c => c.id === aiDetectedCategory) && (
+                        <button
+                          type="button"
+                          onClick={() => setCategory(aiDetectedCategory)}
+                          className="block text-[10px] text-indigo-400 hover:text-indigo-300 underline font-medium"
+                        >
+                          Switch category to {aiDetectedCategory.replace('_', ' ')}
+                        </button>
+                      )}
+                    </div>
+                  ) : aiDetectedCategory ? (
+                    <span className="inline-block mt-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold">
+                      ✓ AI Verified: {aiDetectedCategory.replace('_', ' ')} ({Math.round(aiConfidence * 100)}% match)
+                    </span>
+                  ) : (
+                    <span className="inline-block mt-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      Neural Verification Ready
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"

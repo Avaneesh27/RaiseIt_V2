@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import fs from 'fs';
 import { AuthRequest } from '../middleware/auth';
 import { IssueReport } from '../models/IssueReport';
 import { IssueCategory } from '../models/IssueCategory';
@@ -10,6 +11,7 @@ import { calculatePriority } from '../services/priorityService';
 import { createReportSchema } from '../validators';
 import { IssueStatus } from '../config/constants';
 import { getPublicImageUrl } from '../utils/fileUpload';
+import { AIProxyService } from '../services/aiProxyService';
 
 /**
  * Helper to generate sequential civic ticket tracking IDs (e.g. RI1024)
@@ -66,8 +68,41 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
       hasRecentReportsWithin7Days: recurrenceAnalysis.hasRecentReportsWithin7Days
     });
 
+    // Step 2.5: Run Unified AI Decision & Validation Pipeline
+    let aiAssessment = null;
+    let finalAiCategory = validated.aiDetectedCategory;
+    let finalAiConfidence = validated.aiConfidence;
+
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      aiAssessment = await AIProxyService.generateUnifiedAssessment({
+        fileBuffer,
+        filename: req.file.originalname,
+        mimeType: req.file.mimetype,
+        category: categoryKey,
+        description: validated.description,
+        address: validated.address,
+        latitude: validated.latitude,
+        longitude: validated.longitude,
+        is_recurring: recurrenceAnalysis.isRecurring,
+        nearby_report_count: recurrenceAnalysis.nearbyReportCount,
+        image_category: validated.aiDetectedCategory,
+        image_confidence: validated.aiConfidence
+      });
+
+      if (aiAssessment) {
+        finalAiCategory = aiAssessment.prediction;
+        finalAiConfidence = aiAssessment.confidence;
+      }
+    } catch (e: any) {
+      console.warn('[ReportController] Unified pipeline error:', e.message);
+    }
+
     // Step 3: Generate sequential tracking ID (e.g. RI1024)
     const reportId = await generateNextReportId();
+
+    const isAiRejected = aiAssessment?.validationStatus === 'REJECTED';
+    const initialStatus = isAiRejected ? IssueStatus.REJECTED : IssueStatus.SUBMITTED;
 
     // Step 4: Create Issue Report in MongoDB with 2dsphere Point coordinates
     const report = await IssueReport.create({
@@ -76,9 +111,10 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
       imageUrl,
       categoryId: category?._id,
       categoryName: categoryKey,
-      aiDetectedCategory: validated.aiDetectedCategory,
-      aiConfidence: validated.aiConfidence,
+      aiDetectedCategory: finalAiCategory,
+      aiConfidence: finalAiConfidence,
       isCategoryOverridden: validated.isCategoryOverridden,
+      aiAssessment,
       description: validated.description,
       location: {
         type: 'Point',
@@ -91,24 +127,28 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
       isRecurring: recurrenceAnalysis.isRecurring,
       nearbyReportCount: recurrenceAnalysis.nearbyReportCount,
       assignedDepartmentId,
-      status: IssueStatus.SUBMITTED
+      status: initialStatus
     });
 
     // Step 5: Log initial event in timeline
     await IssueUpdate.create({
       reportId: report._id,
       authorityId: req.user._id,
-      status: IssueStatus.SUBMITTED,
-      comment: 'Citizen submitted report with photo evidence and GPS verification'
+      status: initialStatus,
+      comment: isAiRejected
+        ? `Automated AI Evidence Validation REJECTED this submission: ${aiAssessment?.uncertaintyNotes || 'Photographic evidence does not match reported category.'}`
+        : 'Citizen submitted report with photo evidence and GPS verification'
     });
 
     // Step 6: Create confirmation notification for citizen
     await NotificationService.sendNotification({
       userId: req.user._id,
       reportId: report._id,
-      title: 'Report Submitted',
-      message: `Your report #${report.reportId} for ${categoryKey} has been registered and routed to municipal authorities.`,
-      type: 'SUBMISSION'
+      title: isAiRejected ? 'AI Validation Alert - Report Rejected' : 'Report Submitted',
+      message: isAiRejected
+        ? `Your report #${report.reportId} was rejected by automated AI validation: ${aiAssessment?.uncertaintyNotes}`
+        : `Your report #${report.reportId} for ${categoryKey} has been registered and routed to municipal authorities.`,
+      type: isAiRejected ? 'SYSTEM' : 'SUBMISSION'
     });
 
     const populatedReport = await IssueReport.findById(report._id)

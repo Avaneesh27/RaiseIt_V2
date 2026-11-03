@@ -14,7 +14,12 @@ import {
   Sparkles,
   Send,
   Upload,
-  Layers
+  Layers,
+  BrainCircuit,
+  BookOpen,
+  RefreshCw,
+  FileCheck,
+  XCircle
 } from 'lucide-react';
 import { authorityApi } from '../../services/api';
 import { CivicAssistantModal } from '../../components/CivicAssistantModal';
@@ -30,6 +35,7 @@ export const IssueDetails: React.FC = () => {
 
   // Assistant modal state
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [validatingAI, setValidatingAI] = useState(false);
 
   // Status transition form
   const [statusLoading, setStatusLoading] = useState(false);
@@ -66,6 +72,19 @@ export const IssueDetails: React.FC = () => {
   useEffect(() => {
     fetchDetails();
   }, [reportId]);
+
+  const handleRunAiValidation = async () => {
+    if (!reportId) return;
+    setValidatingAI(true);
+    try {
+      await authorityApi.validateReport(reportId);
+      await fetchDetails();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to execute AI validation');
+    } finally {
+      setValidatingAI(false);
+    }
+  };
 
   const handleStatusChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,6 +281,194 @@ export const IssueDetails: React.FC = () => {
                 <p className="text-sm text-slate-200 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
                   {report.description}
                 </p>
+              </div>
+            )}
+          </div>
+
+          {/* ============================================================ */}
+          {/* UNIFIED AI DECISION AND VALIDATION PIPELINE PANEL            */}
+          {/* ============================================================ */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <BrainCircuit className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">AI Decision & Validation Pipeline</h3>
+                  <p className="text-xs text-slate-400">
+                    PyTorch EfficientNet-B0 + FAISS Dense Retrieval + Grounded Gemini Assessment
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleRunAiValidation}
+                disabled={validatingAI}
+                className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${validatingAI ? 'animate-spin' : ''}`} />
+                <span>{validatingAI ? 'Running Pipeline...' : report.aiAssessment ? 'Re-run Pipeline' : 'Run AI Validation'}</span>
+              </button>
+            </div>
+
+            {report.aiAssessment ? (
+              <div className="space-y-6">
+                {/* Validation Status Banner */}
+                <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${
+                  report.aiAssessment.validationStatus === 'VALIDATED'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : report.aiAssessment.validationStatus === 'REJECTED'
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    : report.aiAssessment.validationStatus === 'MANUAL_REVIEW_REQUIRED'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    : 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                }`}>
+                  <div className="flex items-center space-x-3">
+                    {report.aiAssessment.validationStatus === 'VALIDATED' ? (
+                      <CheckCircle2 className="w-6 h-6 shrink-0 text-emerald-400" />
+                    ) : report.aiAssessment.validationStatus === 'REJECTED' ? (
+                      <XCircle className="w-6 h-6 shrink-0 text-rose-400" />
+                    ) : (
+                      <AlertTriangle className="w-6 h-6 shrink-0 text-amber-400" />
+                    )}
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider flex items-center space-x-2">
+                        <span>Validation Status: {report.aiAssessment.validationStatus}</span>
+                        {report.aiAssessment.validationStatus === 'REJECTED' && (
+                          <span className="bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                            AI Rejected
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        {report.aiAssessment.validationStatus === 'VALIDATED'
+                          ? 'Visual evidence confirmed by neural model and verified against municipal SOP thresholds.'
+                          : report.aiAssessment.validationStatus === 'REJECTED'
+                          ? report.aiAssessment.uncertaintyNotes || 'AI Evidence Validation Failed: Image does not match claimed category or contains invalid non-civic content.'
+                          : report.aiAssessment.uncertaintyNotes || 'Requires supervisory verification before field dispatch.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] text-slate-400 block">Model Confidence</span>
+                    <span className="text-lg font-black">{Math.round(report.aiAssessment.confidence * 100)}%</span>
+                  </div>
+                </div>
+
+                {/* 2-Column Metrics: ML Vision & Department Routing */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* ML Model Output */}
+                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-300">
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                      <span>Vision Classification</span>
+                    </div>
+                    <div className="text-xs space-y-1.5 text-slate-400">
+                      <div className="flex justify-between">
+                        <span>Predicted Defect:</span>
+                        <span className="font-bold text-white capitalize">{report.aiAssessment.prediction.replace('_', ' ')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Architecture:</span>
+                        <span className="font-mono text-emerald-400">{report.aiAssessment.modelVersion}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Citizen Selection:</span>
+                        <span className="text-slate-300 capitalize">{report.categoryName.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Routing & SLA */}
+                  <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-300">
+                      <Clock className="w-4 h-4 text-emerald-400" />
+                      <span>Routing & Prescribed SLA</span>
+                    </div>
+                    <div className="text-xs space-y-1.5 text-slate-400">
+                      <div className="flex justify-between">
+                        <span>Suggested Dept:</span>
+                        <span className="font-bold text-white truncate max-w-[180px]">{report.aiAssessment.suggestedDepartment}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Resolution SLA:</span>
+                        <span className="font-bold text-emerald-400">{report.aiAssessment.prescribedSLA || '48-72 Hours Standard'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Category Key:</span>
+                        <span className="text-slate-300 capitalize">{report.aiAssessment.suggestedCategory}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recommended Next Operational Action */}
+                <div className="p-4 bg-indigo-950/30 border border-indigo-500/20 rounded-2xl">
+                  <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider block mb-1">
+                    Recommended Operational Action:
+                  </span>
+                  <p className="text-xs text-indigo-100 font-medium">
+                    {report.aiAssessment.recommendedAction}
+                  </p>
+                </div>
+
+                {/* Grounded AI Analysis from Gemini / RAG */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+                    <FileCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Grounded Civic Analysis</span>
+                  </span>
+                  <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                    {report.aiAssessment.groundedAnalysis}
+                  </div>
+                </div>
+
+                {/* Retrieved SOP Supporting Citations */}
+                {report.aiAssessment.retrievedSupportingInfo && report.aiAssessment.retrievedSupportingInfo.length > 0 && (
+                  <div className="space-y-3">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+                      <BookOpen className="w-4 h-4 text-indigo-400" />
+                      <span>Retrieved Verified SOP Documents ({report.aiAssessment.retrievedSupportingInfo.length})</span>
+                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {report.aiAssessment.retrievedSupportingInfo.map((info, idx) => (
+                        <div key={idx} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-indigo-400 font-bold">
+                            <span className="truncate max-w-[200px]">{info.documentName}</span>
+                            <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                              Score: {Math.round((info.relevanceScore || 0) * 100)}%
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            Section: <span className="text-slate-200">{info.section}</span>
+                          </div>
+                          {info.textSnippet && (
+                            <p className="text-[11px] text-slate-500 italic line-clamp-2">
+                              "{info.textSnippet}"
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-6 bg-slate-950/50 rounded-2xl border border-dashed border-slate-800 text-center space-y-3">
+                <BrainCircuit className="w-8 h-8 mx-auto text-slate-600" />
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  This report has not yet been processed through the Unified AI Decision & Validation Pipeline.
+                </p>
+                <button
+                  onClick={handleRunAiValidation}
+                  disabled={validatingAI}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition"
+                >
+                  {validatingAI ? 'Running Pipeline...' : 'Run Unified AI Pipeline Now'}
+                </button>
               </div>
             )}
           </div>

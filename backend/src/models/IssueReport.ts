@@ -6,6 +6,30 @@ export interface IGeoPoint {
   coordinates: [number, number]; // [longitude, latitude]
 }
 
+export interface IRetrievedSupportingInfo {
+  documentName: string;
+  department?: string;
+  section?: string;
+  relevanceScore?: number;
+  textSnippet?: string;
+}
+
+export interface IAIAssessment {
+  prediction: string;
+  confidence: number;
+  modelVersion: string;
+  isSupportedCategory: boolean;
+  validationStatus: 'VALIDATED' | 'UNCERTAIN' | 'MANUAL_REVIEW_REQUIRED' | string;
+  suggestedDepartment: string;
+  suggestedCategory: string;
+  prescribedSLA?: string;
+  recommendedAction: string;
+  groundedAnalysis: string;
+  retrievedSupportingInfo: IRetrievedSupportingInfo[];
+  uncertaintyNotes?: string | null;
+  generatedAt?: Date;
+}
+
 export interface IIssueReport extends Document {
   reportId: string;
   citizenId: Types.ObjectId;
@@ -16,6 +40,7 @@ export interface IIssueReport extends Document {
   aiDetectedCategory?: string;
   aiConfidence: number; // 0.0 to 1.0
   isCategoryOverridden: boolean;
+  aiAssessment?: IAIAssessment;
   description?: string;
   location: IGeoPoint;
   address?: string;
@@ -45,6 +70,7 @@ const issueReportSchema = new Schema<IIssueReport>(
     aiDetectedCategory: { type: String },
     aiConfidence: { type: Number, required: true, default: 0 },
     isCategoryOverridden: { type: Boolean, default: false },
+    aiAssessment: { type: Schema.Types.Mixed },
     description: { type: String, trim: true },
     location: {
       type: {

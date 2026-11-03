@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   User as UserIcon,
   Clock,
@@ -19,9 +19,13 @@ import {
 } from 'lucide-react';
 import { citizenApi } from '../../services/api';
 import { CitizenReportDetailsModal } from '../../components/citizen/CitizenReportDetailsModal';
+import { CivicAssistantModal } from '../../components/CivicAssistantModal';
 
 export const CitizenReportsPage: React.FC = () => {
   const navigate = useNavigate();
+  const outletCtx = useOutletContext<{
+    onOpenAssistant?: (reportId?: string) => void;
+  }>();
 
   const [reports, setReports] = useState<any[]>([]);
   const [nearbyIssues, setNearbyIssues] = useState<any[]>([]);
@@ -29,6 +33,18 @@ export const CitizenReportsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [localAssistantOpen, setLocalAssistantOpen] = useState(false);
+  const [assistantReportId, setAssistantReportId] = useState<string | undefined>();
+
+  const handleOpenAssistant = (reportId?: string) => {
+    setSelectedReportId(null);
+    if (outletCtx?.onOpenAssistant) {
+      outletCtx.onOpenAssistant(reportId);
+    } else {
+      setAssistantReportId(reportId);
+      setLocalAssistantOpen(true);
+    }
+  };
 
   useEffect(() => {
     fetchReportsData();
@@ -362,8 +378,17 @@ export const CitizenReportsPage: React.FC = () => {
       <CitizenReportDetailsModal
         reportId={selectedReportId}
         onClose={() => setSelectedReportId(null)}
-        onOpenAssistant={() => {}}
+        onOpenAssistant={handleOpenAssistant}
       />
+
+      {/* Standalone Fallback Assistant Modal if not provided by layout */}
+      {!outletCtx?.onOpenAssistant && (
+        <CivicAssistantModal
+          isOpen={localAssistantOpen}
+          onClose={() => setLocalAssistantOpen(false)}
+          reportId={assistantReportId}
+        />
+      )}
     </div>
   );
 };

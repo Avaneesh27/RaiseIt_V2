@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from typing import List
 from sentence_transformers import SentenceTransformer
@@ -18,8 +19,14 @@ class EmbeddingManager:
   def _load_model(self):
     if self.model is None:
       print("[EmbeddingManager] Loading SentenceTransformer 'all-MiniLM-L6-v2'...")
-      self.model = SentenceTransformer("all-MiniLM-L6-v2")
-      print("[EmbeddingManager] Model loaded successfully.")
+      try:
+        # Fast local loading from cached HuggingFace weights without network delay
+        self.model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
+        print("[EmbeddingManager] Local model loaded successfully.")
+      except Exception as local_err:
+        print(f"[EmbeddingManager] Local load notice: {local_err}. Falling back to default loader...")
+        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        print("[EmbeddingManager] Model loaded successfully.")
 
   def embed_texts(self, texts: List[str]) -> np.ndarray:
     self._load_model()

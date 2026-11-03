@@ -4,6 +4,7 @@ import { AIProxyService } from '../services/aiProxyService';
 import { findNearbySimilarReports } from '../services/recurrenceService';
 import { calculatePriority } from '../services/priorityService';
 import { IssueCategory } from '../models/IssueCategory';
+import { IssueReport } from '../models/IssueReport';
 import fs from 'fs';
 
 export const classifyImage = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -70,6 +71,42 @@ export const analyzeReport = async (req: AuthRequest, res: Response): Promise<vo
         nearbyReports: recurrence.nearbyReports
       },
       priority
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * On-demand Unified AI Decision & Validation Pipeline for a complaint
+ */
+export const validateReport = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { reportId } = req.params;
+    const report = await IssueReport.findOne({ reportId });
+    if (!report) {
+      res.status(404).json({ message: 'Complaint not found' });
+      return;
+    }
+
+    const assessment = await AIProxyService.generateUnifiedAssessment({
+      category: report.categoryName,
+      description: report.description,
+      address: report.address,
+      latitude: report.location?.coordinates ? report.location.coordinates[1] : undefined,
+      longitude: report.location?.coordinates ? report.location.coordinates[0] : undefined,
+      is_recurring: report.isRecurring,
+      nearby_report_count: report.nearbyReportCount,
+      image_category: report.aiDetectedCategory,
+      image_confidence: report.aiConfidence
+    });
+
+    report.aiAssessment = assessment;
+    await report.save();
+
+    res.json({
+      message: 'AI Decision & Validation Pipeline completed',
+      assessment
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

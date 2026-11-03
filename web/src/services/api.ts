@@ -75,7 +75,8 @@ export const authorityApi = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   getPriorityLocations: () => api.get('/authority/priority-locations'),
-  getAnalytics: () => api.get('/authority/analytics')
+  getAnalytics: () => api.get('/authority/analytics'),
+  validateReport: (reportId: string) => api.post(`/ai/validate-report/${reportId}`)
 };
 
 export const adminApi = {

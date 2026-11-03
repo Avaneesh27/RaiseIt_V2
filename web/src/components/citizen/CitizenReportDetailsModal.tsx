@@ -228,8 +228,8 @@ export const CitizenReportDetailsModal: React.FC<CitizenReportDetailsModalProps>
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => onOpenAssistant(report.reportId)}
-                  className="w-full py-3 px-4 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  onClick={() => onOpenAssistant(report?.reportId || reportId || '')}
+                  className="w-full py-3 px-4 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
                 >
                   <HelpCircle className="w-4 h-4" />
                   <span>Ask Civic Assistant About This Issue</span>

@@ -38,6 +38,30 @@ export interface IssueCategory {
   basePriorityWeight: number;
 }
 
+export interface RetrievedInfoItem {
+  documentName: string;
+  department?: string;
+  section?: string;
+  relevanceScore?: number;
+  textSnippet?: string;
+}
+
+export interface AIAssessment {
+  prediction: string;
+  confidence: number;
+  modelVersion: string;
+  isSupportedCategory: boolean;
+  validationStatus: 'VALIDATED' | 'UNCERTAIN' | 'MANUAL_REVIEW_REQUIRED' | string;
+  suggestedDepartment: string;
+  suggestedCategory: string;
+  prescribedSLA?: string;
+  recommendedAction: string;
+  groundedAnalysis: string;
+  retrievedSupportingInfo: RetrievedInfoItem[];
+  uncertaintyNotes?: string | null;
+  generatedAt?: string;
+}
+
 export interface IssueReport {
   _id: string;
   reportId: string;
@@ -53,6 +77,7 @@ export interface IssueReport {
   aiDetectedCategory?: string;
   aiConfidence: number;
   isCategoryOverridden: boolean;
+  aiAssessment?: AIAssessment;
   description?: string;
   location: {
     type: 'Point';

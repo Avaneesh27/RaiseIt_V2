@@ -37,6 +37,19 @@ export const CivicAssistantModal: React.FC<CivicAssistantModalProps> = ({
     }
   ]);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setMessages([
+        {
+          sender: 'assistant',
+          text: reportId
+            ? `Hello! I am your RAG Civic Assistant. I am linked to report #${reportId}. Ask me about standard operating procedures, SLAs, or next steps.`
+            : 'Hello! I am your verified Civic Assistant. Ask me anything regarding municipal guidelines, department responsibilities, or complaint procedures.'
+        }
+      ]);
+    }
+  }, [reportId, isOpen]);
+
   if (!isOpen) return null;
 
   const handleSend = async (customQuery?: string) => {
@@ -89,7 +102,7 @@ export const CivicAssistantModal: React.FC<CivicAssistantModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {contextTitle ? `Context: ${contextTitle}` : 'Grounded in verified municipal SOPs and regulations'}
+                {contextTitle ? `Context: ${contextTitle}` : reportId ? `Linked to Issue #${reportId}` : 'Grounded in verified municipal SOPs and regulations'}
               </p>
             </div>
           </div>
