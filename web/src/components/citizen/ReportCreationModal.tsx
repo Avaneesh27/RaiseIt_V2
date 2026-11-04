@@ -238,7 +238,11 @@ export const ReportCreationModal: React.FC<ReportCreationModalProps> = ({
           if (res.data?.category) {
             setDetectedCategory(res.data.category);
             setSelectedCategory(res.data.category);
-            setConfidence(res.data.confidence || 0.92);
+            if (res.data.category === 'irrelevant') {
+              setConfidence(0);
+            } else {
+              setConfidence(res.data.confidence ?? 0.92);
+            }
           }
         } catch {
           // Keep default on offline
@@ -268,6 +272,10 @@ export const ReportCreationModal: React.FC<ReportCreationModalProps> = ({
   };
 
   const handleProceedToReview = () => {
+    if (detectedCategory === 'irrelevant') {
+      setError('AI validation rejected: Non-civic image detected (0% AI Accuracy). No ticket can be created.');
+      return;
+    }
     if (!title) {
       const catLabel = CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Civic Issue';
       setTitle(`${catLabel} at ${address.split(',')[0]}`);
@@ -276,6 +284,10 @@ export const ReportCreationModal: React.FC<ReportCreationModalProps> = ({
   };
 
   const handleFinalSubmit = async () => {
+    if (detectedCategory === 'irrelevant') {
+      setError('Submission Blocked: AI validation rejected this image (0% AI Accuracy). No ticket can be created.');
+      return;
+    }
     if (!deviceLocation) {
       setError('Cannot submit without a verified device location.');
       return;
@@ -681,69 +693,88 @@ export const ReportCreationModal: React.FC<ReportCreationModalProps> = ({
                       </h4>
                     </div>
 
-                    {/* Understated AI Result */}
-                    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#0d1322] border border-slate-200 dark:border-slate-800 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-500">Detected:</span>
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                          Confidence: {(confidence * 100).toFixed(0)}%
-                        </span>
-                      </div>
-
-                      <div className="text-xl font-black text-slate-900 dark:text-white">
-                        {CATEGORIES.find((c) => c.id === selectedCategory)?.label || selectedCategory}
-                      </div>
-
-                      {recurrenceData.isRecurring && (
-                        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5 text-xs">
-                          <Flame className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-bold text-amber-900 dark:text-amber-300 block">
-                              Recurring Cluster — {recurrenceData.nearbyCount} reports within 500m
-                            </span>
-                            <span className="text-amber-700 dark:text-amber-400 text-[11px]">
-                              Priority elevated to {recurrenceData.priorityLevel} ({recurrenceData.priorityScore}/100) due to repeated neglect.
-                            </span>
-                          </div>
+                    {/* AI Result Card */}
+                    {detectedCategory === 'irrelevant' ? (
+                      <div className="p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-rose-500">Validation Status:</span>
+                          <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                            Civic Accuracy: 0%
+                          </span>
                         </div>
-                      )}
 
-                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Is this correct?</span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCategoryOverridden(!isCategoryOverridden)}
-                          className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                        >
-                          {isCategoryOverridden ? 'Keep Selection' : 'Choose Another Category'}
-                        </button>
-                      </div>
-
-                      {isCategoryOverridden && (
-                        <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                          <span className="text-[11px] font-semibold text-slate-500 block">Manual Override:</span>
-                          <div className="grid grid-cols-2 gap-2">
-                            {CATEGORIES.map((cat) => (
-                              <button
-                                key={cat.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedCategory(cat.id);
-                                  setIsCategoryOverridden(false);
-                                }}
-                                className={`p-2.5 rounded-xl text-left text-xs border transition ${
-                                  selectedCategory === cat.id
-                                    ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold'
-                                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
-                                }`}
-                              >
-                                {cat.label}
-                              </button>
-                            ))}
-                          </div>
+                        <div className="text-lg font-black text-rose-700 dark:text-rose-300">
+                          Non-Civic Image Detected
                         </div>
-                      )}
-                    </div>
+
+                        <p className="text-xs text-rose-600 dark:text-rose-400 leading-relaxed">
+                          AI Evidence Validation has rejected this photo. It does not depict an authentic civic infrastructure defect. Report creation is blocked. Please go back and provide a genuine photo of a public issue.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#0d1322] border border-slate-200 dark:border-slate-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-500">Detected:</span>
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            Confidence: {(confidence * 100).toFixed(0)}%
+                          </span>
+                        </div>
+
+                        <div className="text-xl font-black text-slate-900 dark:text-white">
+                          {CATEGORIES.find((c) => c.id === selectedCategory)?.label || selectedCategory}
+                        </div>
+
+                        {recurrenceData.isRecurring && (
+                          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5 text-xs">
+                            <Flame className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-amber-900 dark:text-amber-300 block">
+                                Recurring Cluster — {recurrenceData.nearbyCount} reports within 500m
+                              </span>
+                              <span className="text-amber-700 dark:text-amber-400 text-[11px]">
+                                Priority elevated to {recurrenceData.priorityLevel} ({recurrenceData.priorityScore}/100) due to repeated neglect.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                          <span className="text-slate-500">Is this correct?</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsCategoryOverridden(!isCategoryOverridden)}
+                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                          >
+                            {isCategoryOverridden ? 'Keep Selection' : 'Choose Another Category'}
+                          </button>
+                        </div>
+
+                        {isCategoryOverridden && (
+                          <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <span className="text-[11px] font-semibold text-slate-500 block">Manual Override:</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              {CATEGORIES.map((cat) => (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCategory(cat.id);
+                                    setIsCategoryOverridden(false);
+                                  }}
+                                  className={`p-2.5 rounded-xl text-left text-xs border transition ${
+                                    selectedCategory === cat.id
+                                      ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold'
+                                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                                  }`}
+                                >
+                                  {cat.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex gap-3">
                       <button
@@ -757,10 +788,17 @@ export const ReportCreationModal: React.FC<ReportCreationModalProps> = ({
                       <button
                         type="button"
                         onClick={handleProceedToReview}
-                        className="w-2/3 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition"
+                        disabled={detectedCategory === 'irrelevant'}
+                        className={`w-2/3 py-3 rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 transition ${
+                          detectedCategory === 'irrelevant'
+                            ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                        }`}
                       >
-                        <span>Continue to Review</span>
+                        <span>{detectedCategory === 'irrelevant' ? 'Submission Blocked' : 'Continue to Review'}</span>
                         <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
                       </button>
                     </div>
                   </div>

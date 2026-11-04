@@ -21,11 +21,14 @@ export const classifyImage = async (req: AuthRequest, res: Response): Promise<vo
       req.file.mimetype
     );
 
+    const isIrrelevant = result.category === 'irrelevant';
+
     res.json({
       category: result.category,
-      confidence: result.confidence,
+      confidence: isIrrelevant ? 0.0 : result.confidence,
       modelVersion: result.modelVersion,
-      isFallback: result.isFallback || false
+      isFallback: result.isFallback || false,
+      isValidCivicImage: !isIrrelevant
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

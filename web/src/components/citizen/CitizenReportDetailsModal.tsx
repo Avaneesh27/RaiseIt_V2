@@ -100,20 +100,30 @@ export const CitizenReportDetailsModal: React.FC<CitizenReportDetailsModalProps>
                   </h3>
 
                   <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {report.categoryName?.replace('_', ' ').toUpperCase()}
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
+                      report.status === 'REJECTED' || report.aiCategory === 'irrelevant'
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      {report.status === 'REJECTED' || report.aiCategory === 'irrelevant'
+                        ? 'INVALID / REJECTED'
+                        : report.categoryName?.replace('_', ' ').toUpperCase()}
                     </span>
 
                     <span
                       className={`px-2 py-0.5 rounded-md text-xs font-bold ${
-                        report.priorityLevel === 'HIGH'
+                        report.status === 'REJECTED' || report.aiCategory === 'irrelevant'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          : report.priorityLevel === 'HIGH'
                           ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                           : report.priorityLevel === 'MEDIUM'
                           ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                           : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                       }`}
                     >
-                      {report.priorityLevel} PRIORITY ({report.priorityScore}/100)
+                      {report.status === 'REJECTED' || report.aiCategory === 'irrelevant'
+                        ? 'REJECTED (0/100)'
+                        : `${report.priorityLevel} PRIORITY (${report.priorityScore}/100)`}
                     </span>
                   </div>
 
@@ -138,10 +148,17 @@ export const CitizenReportDetailsModal: React.FC<CitizenReportDetailsModalProps>
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0d1322] border border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <span className="text-slate-500 block mb-1">AI Vision Classifier:</span>
-                  <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-                    {report.aiCategory || report.categoryName} ({(report.aiConfidence * 100 || 94).toFixed(0)}%)
-                  </span>
+                  {report.status === 'REJECTED' || report.aiCategory === 'irrelevant' || report.aiDetectedCategory === 'irrelevant' || report.aiAssessment?.validationStatus === 'REJECTED' ? (
+                    <span className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-rose-500" />
+                      Rejected / Non-Civic (0% Accuracy)
+                    </span>
+                  ) : (
+                    <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                      {report.aiCategory || report.categoryName} ({Math.round((report.aiConfidence ?? 0.94) * 100)}%)
+                    </span>
+                  )}
                 </div>
 
                 <div>

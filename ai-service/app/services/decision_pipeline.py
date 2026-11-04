@@ -102,13 +102,15 @@ class UnifiedDecisionPipeline:
         )
 
         if is_irrelevant:
+            confidence = 0.0
+            pred_cat = "irrelevant"
             validation_status = "REJECTED"
             uncertainty_notes = f"AI Validation REJECTED: Photographic evidence does not depict a valid civic issue ({detection_reason or 'non-civic content detected'}). Valid on-site photo proof of public infrastructure defect is mandatory."
             suggested_department = "Citizen Redressal Cell"
             recommended_action = "Reject ticket or request citizen re-submission with authentic photo of the civic defect."
             prescribed_sla = "N/A - Rejected by AI Validation"
             is_supported = False
-            target_cat = user_cat
+            target_cat = "irrelevant"
 
         elif category_mismatch and confidence >= 0.60:
             validation_status = "REJECTED"

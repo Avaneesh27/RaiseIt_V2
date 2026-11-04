@@ -140,7 +140,7 @@ class VisionClassifier:
             if any(k in fn for k in ["selfie", "person", "face", "avatar", "profile", "dog", "cat", "pet", "food", "cake", "pizza", "car", "cloth", "meme", "random", "test", "irrelevant", "fake"]):
                 elapsed = (time.time() - start_time) * 1000
                 self.last_detection_reason = f"Non-civic photographic submission ({filename})"
-                return "irrelevant", 0.95, round(elapsed, 2)
+                return "irrelevant", 0.0, round(elapsed, 2)
 
             # 1b. Footpath / Railing (Urban Infrastructure)
             if any(k in fn for k in ["footpath", "foot_path", "railing", "sidewalk", "pedestrian"]):
@@ -213,7 +213,7 @@ class VisionClassifier:
             if std_dev_32 < 14.0:
                 elapsed = (time.time() - start_time) * 1000
                 self.last_detection_reason = "Uniform or featureless surface detected with no civic infrastructure defect"
-                return "irrelevant", 0.95, round(elapsed, 2)
+                return "irrelevant", 0.0, round(elapsed, 2)
 
             # 2b. Visual cue analysis (64x64 pixel distribution)
             med_img = pil_img.resize((64, 64))
@@ -235,7 +235,7 @@ class VisionClassifier:
             if skin_ratio > 0.08:
                 elapsed = (time.time() - start_time) * 1000
                 self.last_detection_reason = "Portrait / person detected instead of civic defect"
-                return "irrelevant", 0.94, round(elapsed, 2)
+                return "irrelevant", 0.0, round(elapsed, 2)
 
             # 2d. Domain Verification via ImageNet (detect indoor furniture, electronics, food, pets, apparel)
             tensor = self.transform(pil_img).unsqueeze(0).to(self.device)
@@ -258,7 +258,7 @@ class VisionClassifier:
                 if matched_non_civic and top_prob >= 0.04:
                     elapsed = (time.time() - start_time) * 1000
                     self.last_detection_reason = f"Detected non-civic subject ({matched_non_civic})"
-                    return "irrelevant", round(max(top_prob, 0.88), 4), round(elapsed, 2)
+                    return "irrelevant", 0.0, round(elapsed, 2)
 
             # 2e. Check Streetlight (dark night background with localized luminaire)
             if dark_ratio > 0.55 and bright_pts > 8:
@@ -297,16 +297,16 @@ class VisionClassifier:
                         return "pothole", round(max(road_prob, 0.88), 4), round(elapsed, 2)
 
             # 2h. Default fallback for random / unverified photos:
-            # If the image does not match any authentic civic defect, flag it as irrelevant / invalid
+            # If the image does not match any authentic civic defect, flag it as irrelevant / invalid with 0% accuracy
             elapsed = (time.time() - start_time) * 1000
             self.last_detection_reason = "Photographic evidence does not depict any authentic civic infrastructure defect"
-            return "irrelevant", 0.92, round(elapsed, 2)
+            return "irrelevant", 0.0, round(elapsed, 2)
 
         except Exception as err:
             print(f"[VisionClassifier] Error during inference: {err}")
             elapsed = (time.time() - start_time) * 1000
             self.last_detection_reason = f"Inference error: {str(err)}"
-            return "irrelevant", 0.85, round(elapsed, 2)
+            return "irrelevant", 0.0, round(elapsed, 2)
 
 
 # Global singleton instance

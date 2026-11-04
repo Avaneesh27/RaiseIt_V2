@@ -98,11 +98,33 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
       console.warn('[ReportController] Unified pipeline error:', e.message);
     }
 
+    const isAiRejected = aiAssessment?.validationStatus === 'REJECTED' ||
+      finalAiCategory === 'irrelevant' ||
+      validated.aiDetectedCategory === 'irrelevant';
+
+    // If the image is not validated by AI, REJECT immediately:
+    // DO NOT create the ticket in MongoDB, DO NOT send it further, and return 422 with 0% AI accuracy.
+    if (isAiRejected) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch {}
+      }
+
+      const rejectionReason = aiAssessment?.uncertaintyNotes ||
+        'Photographic evidence does not depict an authentic civic infrastructure defect (0% Civic Accuracy).';
+
+      res.status(422).json({
+        success: false,
+        status: 'REJECTED',
+        aiAccuracy: 0,
+        message: `AI Validation Rejected: ${rejectionReason} No ticket was created.`,
+        reason: rejectionReason
+      });
+      return;
+    }
+
     // Step 3: Generate sequential tracking ID (e.g. RI1024)
     const reportId = await generateNextReportId();
-
-    const isAiRejected = aiAssessment?.validationStatus === 'REJECTED';
-    const initialStatus = isAiRejected ? IssueStatus.REJECTED : IssueStatus.SUBMITTED;
+    const initialStatus = IssueStatus.SUBMITTED;
 
     // Step 4: Create Issue Report in MongoDB with 2dsphere Point coordinates
     const report = await IssueReport.create({
@@ -135,20 +157,16 @@ export const createReport = async (req: AuthRequest, res: Response): Promise<voi
       reportId: report._id,
       authorityId: req.user._id,
       status: initialStatus,
-      comment: isAiRejected
-        ? `Automated AI Evidence Validation REJECTED this submission: ${aiAssessment?.uncertaintyNotes || 'Photographic evidence does not match reported category.'}`
-        : 'Citizen submitted report with photo evidence and GPS verification'
+      comment: 'Citizen submitted report with photo evidence and GPS verification'
     });
 
     // Step 6: Create confirmation notification for citizen
     await NotificationService.sendNotification({
       userId: req.user._id,
       reportId: report._id,
-      title: isAiRejected ? 'AI Validation Alert - Report Rejected' : 'Report Submitted',
-      message: isAiRejected
-        ? `Your report #${report.reportId} was rejected by automated AI validation: ${aiAssessment?.uncertaintyNotes}`
-        : `Your report #${report.reportId} for ${categoryKey} has been registered and routed to municipal authorities.`,
-      type: isAiRejected ? 'SYSTEM' : 'SUBMISSION'
+      title: 'Report Submitted',
+      message: `Your report #${report.reportId} for ${categoryKey} has been registered and routed to municipal authorities.`,
+      type: 'SUBMISSION'
     });
 
     const populatedReport = await IssueReport.findById(report._id)

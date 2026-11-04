@@ -256,9 +256,13 @@ export const CitizenReportIssuePage: React.FC = () => {
       const res = await citizenApi.classifyImage(fd);
       if (res.data?.category) {
         setAiDetectedCategory(res.data.category);
-        setAiConfidence(res.data.confidence || 0.9);
-        if (CATEGORIES.some((c) => c.id === res.data.category)) {
-          setCategory(res.data.category);
+        if (res.data.category === 'irrelevant') {
+          setAiConfidence(0);
+        } else {
+          setAiConfidence(res.data.confidence ?? 0.9);
+          if (CATEGORIES.some((c) => c.id === res.data.category)) {
+            setCategory(res.data.category);
+          }
         }
       }
     } catch {
@@ -341,6 +345,17 @@ export const CitizenReportIssuePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    // Strict AI validation check: non-civic photos are blocked from ticket creation
+    if (!imageFile) {
+      setErrorMessage('Photo evidence is mandatory to submit an issue report.');
+      return;
+    }
+
+    if (aiDetectedCategory === 'irrelevant') {
+      setErrorMessage('Submission Blocked: AI validation rejected this image (0% AI Accuracy). The photo does not depict an authentic civic infrastructure defect. Please attach genuine photo evidence.');
+      return;
+    }
 
     if (!title.trim()) {
       setErrorMessage('Please enter an issue title.');
@@ -890,9 +905,12 @@ export const CitizenReportIssuePage: React.FC = () => {
                     </span>
                   ) : aiDetectedCategory === 'irrelevant' ? (
                     <div className="mt-1 space-y-1">
-                      <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 font-bold">
-                        ❌ AI Warning: Non-civic image detected (will be rejected by validation)
+                      <span className="inline-block text-[11px] font-mono px-2.5 py-1 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold">
+                        ❌ AI Validation: Rejected (0% Civic Accuracy)
                       </span>
+                      <p className="text-[11px] text-rose-500 dark:text-rose-400 font-medium">
+                        Non-civic image detected. Report submission is disabled.
+                      </p>
                     </div>
                   ) : aiDetectedCategory && aiDetectedCategory !== category && !(aiDetectedCategory === 'road_damage' && category === 'pothole') ? (
                     <div className="mt-1 space-y-1">
@@ -945,16 +963,52 @@ export const CitizenReportIssuePage: React.FC = () => {
             </ul>
           </div>
 
+          {/* Non-civic submission warning banner if irrelevant */}
+          {aiDetectedCategory === 'irrelevant' && (
+            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start gap-3 text-rose-700 dark:text-rose-400 text-xs">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+              <div>
+                <p className="font-bold">Submission Blocked: AI Evidence Validation Failed (0% AI Accuracy)</p>
+                <p className="text-[11px] text-rose-600/90 dark:text-rose-400/90 mt-0.5">
+                  The uploaded photo was identified as non-civic content. You must attach an authentic photo of a public infrastructure defect (pothole, garbage, streetlight, etc.) to submit a report.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 7. Submit Button */}
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+            disabled={submitting || classifyingAi || aiDetectedCategory === 'irrelevant' || !imageFile}
+            className={`w-full py-4 rounded-2xl font-bold text-sm transition flex items-center justify-center gap-2 ${
+              aiDetectedCategory === 'irrelevant'
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-80'
+                : !imageFile
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-80'
+                : submitting || classifyingAi
+                ? 'bg-emerald-600/70 text-white cursor-wait'
+                : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-lg shadow-emerald-600/25 cursor-pointer'
+            }`}
           >
             {submitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span>Routing Ticket to Department...</span>
+              </>
+            ) : classifyingAi ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Validating Photo Evidence...</span>
+              </>
+            ) : aiDetectedCategory === 'irrelevant' ? (
+              <>
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+                <span>Submission Inaccessible: Invalid Image (0% AI Accuracy)</span>
+              </>
+            ) : !imageFile ? (
+              <>
+                <Camera className="w-4 h-4" />
+                <span>Attach Photo Evidence to Enable Submission</span>
               </>
             ) : (
               <>
