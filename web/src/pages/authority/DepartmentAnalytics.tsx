@@ -38,17 +38,36 @@ const STATUS_COLORS: Record<string, string> = {
   REJECTED: '#f43f5e',
 };
 
+const CANONICAL_CATEGORIES = [
+  { key: 'pothole', label: 'Pothole / Road' },
+  { key: 'damaged_infrastructure', label: 'Broken Footpath' },
+  { key: 'garbage', label: 'Garbage Dump' },
+  { key: 'streetlight', label: 'Streetlight' },
+  { key: 'water_leakage', label: 'Water Leakage' },
+  { key: 'drainage', label: 'Open Drain' },
+];
+
+const CANONICAL_PRIORITIES = [
+  { key: 'CRITICAL', label: 'CRITICAL', fill: '#e11d48' },
+  { key: 'HIGH', label: 'HIGH', fill: '#f43f5e' },
+  { key: 'MEDIUM', label: 'MEDIUM', fill: '#f59e0b' },
+  { key: 'LOW', label: 'LOW', fill: '#10b981' },
+];
+
+const CATEGORY_COLORS = ['#10b981', '#06b6d4', '#f59e0b', '#8b5cf6', '#3b82f6', '#ec4899'];
+
 export const DepartmentAnalytics: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Timeframe selector
+  // Timeframe selector & scope selector
   const [timeRange, setTimeRange] = useState<'30D' | '90D' | 'YTD'>('30D');
+  const [scope, setScope] = useState<'all' | 'department'>('all');
 
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const res = await authorityApi.getAnalytics();
+      const res = await authorityApi.getAnalytics(scope);
       setData(res.data);
     } catch (err) {
       console.error('Failed to load analytics', err);
@@ -59,7 +78,7 @@ export const DepartmentAnalytics: React.FC = () => {
 
   useEffect(() => {
     fetchAnalytics();
-  }, []);
+  }, [scope]);
 
   // Realistic velocity trend data
   const velocityData = [
@@ -80,16 +99,29 @@ export const DepartmentAnalytics: React.FC = () => {
     { ward: 'Ward 09 • Ramna Maruti', active: 3, resolved: 16, medianHours: '14.1h', compliance: '95.1%', status: 'Optimal' },
   ];
 
-  const categoryData =
-    data?.byCategory && data.byCategory.length > 0
-      ? data.byCategory
-      : [
-          { category: 'Potholes / Road', count: 24, avgSLA: '16h' },
-          { category: 'Waste Spillage', count: 19, avgSLA: '8h' },
-          { category: 'Streetlight', count: 14, avgSLA: '12h' },
-          { category: 'Water Pipeline', count: 11, avgSLA: '18h' },
-          { category: 'Drainage Issue', count: 9, avgSLA: '22h' },
-        ];
+  // Dynamic Category Data - ensuring ALL categories are always listed with dynamic counts
+  const catCountMap = new Map<string, number>();
+  if (data?.byCategory) {
+    data.byCategory.forEach((c: any) => {
+      const raw = (c.rawCategory || c.category || '').toLowerCase().replace(/[^a-z_]/g, '');
+      const count = Number(c.count) || 0;
+      catCountMap.set(raw, count);
+      if (c.category) catCountMap.set(c.category.toLowerCase(), count);
+    });
+  }
+
+  const categoryData = CANONICAL_CATEGORIES.map((cat, idx) => {
+    const dynamicCount =
+      catCountMap.get(cat.key) ??
+      catCountMap.get(cat.label.toLowerCase()) ??
+      0;
+    return {
+      category: cat.label,
+      rawKey: cat.key,
+      count: dynamicCount,
+      fill: CATEGORY_COLORS[idx % CATEGORY_COLORS.length]
+    };
+  });
 
   const statusData =
     data?.byStatus && data.byStatus.length > 0
@@ -102,15 +134,20 @@ export const DepartmentAnalytics: React.FC = () => {
           { status: 'SUBMITTED', count: 4 },
         ];
 
-  const priorityData =
-    data?.byPriority && data.byPriority.length > 0
-      ? data.byPriority
-      : [
-          { priority: 'CRITICAL', count: 6 },
-          { priority: 'HIGH', count: 16 },
-          { priority: 'MEDIUM', count: 32 },
-          { priority: 'LOW', count: 15 },
-        ];
+  // Dynamic Priority Data - ensuring ALL priority tiers (CRITICAL, HIGH, MEDIUM, LOW) are always listed
+  const priCountMap = new Map<string, number>();
+  if (data?.byPriority) {
+    data.byPriority.forEach((p: any) => {
+      const k = (p.priority || '').toUpperCase();
+      priCountMap.set(k, Number(p.count) || 0);
+    });
+  }
+
+  const priorityData = CANONICAL_PRIORITIES.map((pri) => ({
+    priority: pri.label,
+    count: priCountMap.get(pri.key) ?? 0,
+    fill: pri.fill
+  }));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -129,7 +166,31 @@ export const DepartmentAnalytics: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          {/* Scope Selector: City-Wide vs Department */}
+          <div className="flex items-center bg-white dark:bg-[#131b2e] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold shadow-sm">
+            <button
+              onClick={() => setScope('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                scope === 'all'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              City-Wide
+            </button>
+            <button
+              onClick={() => setScope('department')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                scope === 'department'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              My Department
+            </button>
+          </div>
+
           {/* Time Range Selector */}
           <div className="flex items-center bg-white dark:bg-[#131b2e] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold shadow-sm">
             {(['30D', '90D', 'YTD'] as const).map((range) => (
@@ -306,24 +367,42 @@ export const DepartmentAnalytics: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Category Breakdown */}
         <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            Issues by Category
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Issues by Category
+            </h3>
+            <span className="text-xs text-slate-400 font-mono">
+              {categoryData.reduce((acc, c) => acc + c.count, 0)} Logged Issues
+            </span>
+          </div>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={categoryData}>
+              <BarChart data={categoryData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                <XAxis dataKey="category" stroke="#64748b" tick={{ fontSize: 10 }} interval={0} />
-                <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
+                <XAxis
+                  dataKey="category"
+                  stroke="#64748b"
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                  height={45}
+                />
+                <YAxis stroke="#64748b" tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#0f172a',
                     borderColor: '#334155',
                     borderRadius: '12px',
                     fontSize: '12px',
+                    color: '#ffffff'
                   }}
                 />
-                <Bar dataKey="count" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                  {categoryData.map((entry, index) => (
+                    <Cell key={`cat-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -373,24 +452,40 @@ export const DepartmentAnalytics: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Priority Tier Distribution */}
         <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            Priority Queue Tiers
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Priority Queue Tiers
+            </h3>
+            <span className="text-xs text-slate-400 font-mono">
+              {priorityData.reduce((acc, p) => acc + p.count, 0)} Total
+            </span>
+          </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={priorityData} layout="vertical">
+              <BarChart data={priorityData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} />
-                <YAxis dataKey="priority" type="category" stroke="#64748b" tick={{ fontSize: 10 }} width={70} />
+                <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis
+                  dataKey="priority"
+                  type="category"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11, fontWeight: 700 }}
+                  width={75}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#0f172a',
                     borderColor: '#334155',
                     borderRadius: '12px',
                     fontSize: '12px',
+                    color: '#ffffff'
                   }}
                 />
-                <Bar dataKey="count" fill="#f43f5e" radius={[0, 8, 8, 0]} />
+                <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                  {priorityData.map((entry, index) => (
+                    <Cell key={`pri-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

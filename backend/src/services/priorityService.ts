@@ -62,7 +62,9 @@ export const calculatePriority = (params: {
 
   // Determine Priority Level
   let level: PriorityLevel;
-  if (score >= priorityConfig.thresholdHigh) {
+  if (score >= 85) {
+    level = PriorityLevel.CRITICAL;
+  } else if (score >= priorityConfig.thresholdHigh) {
     level = PriorityLevel.HIGH;
   } else if (score >= priorityConfig.thresholdLow) {
     level = PriorityLevel.MEDIUM;

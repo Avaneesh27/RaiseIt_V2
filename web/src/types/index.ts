@@ -1,7 +1,7 @@
 export type UserRole = 'CITIZEN' | 'AUTHORITY' | 'ADMIN';
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE';
 export type IssueStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
-export type PriorityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type PriorityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface User {
   id: string;

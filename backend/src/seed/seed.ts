@@ -211,11 +211,11 @@ export const runSeed = async () => {
     categoryId: catMap['pothole'],
     categoryName: 'pothole',
     aiConfidence: 0.96,
-    description: 'Expanding pothole cluster on Main Avenue during rainfall.',
+    description: 'Expanding road fissure and crater cluster on Main Avenue during heavy rainfall.',
     location: { type: 'Point', coordinates: [77.5945, 12.9715] },
     address: 'Main Avenue & Crossroad 3',
-    priorityScore: 82,
-    priorityLevel: PriorityLevel.HIGH,
+    priorityScore: 88,
+    priorityLevel: PriorityLevel.CRITICAL,
     isRecurring: true,
     nearbyReportCount: 3,
     assignedDepartmentId: deptMap['ROADS'],
@@ -255,8 +255,8 @@ export const runSeed = async () => {
     description: 'Streetlight out for 3 consecutive days causing dark spot.',
     location: { type: 'Point', coordinates: [77.5855, 12.9655] },
     address: '14th Cross, Malleshwaram West',
-    priorityScore: 40,
-    priorityLevel: PriorityLevel.MEDIUM,
+    priorityScore: 30,
+    priorityLevel: PriorityLevel.LOW,
     isRecurring: false,
     nearbyReportCount: 0,
     assignedDepartmentId: deptMap['ELECTRICAL'],
@@ -265,6 +265,87 @@ export const runSeed = async () => {
     resolutionImageUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800',
     resolvedAt: new Date(Date.now() - 12 * 3600 * 1000),
     createdAt: new Date(Date.now() - 6 * 24 * 3600 * 1000)
+  });
+
+  // Report 6: Damaged Infrastructure (Footpath / Railing)
+  const report6 = await IssueReport.create({
+    reportId: 'RI1006',
+    citizenId: citizen._id,
+    imageUrl: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800',
+    categoryId: catMap['damaged_infrastructure'],
+    categoryName: 'damaged_infrastructure',
+    aiConfidence: 0.93,
+    description: 'Collapsed pedestrian footpath pavers and broken metallic railing near bus terminal.',
+    location: { type: 'Point', coordinates: [77.596, 12.9725] },
+    address: 'Subhash Road Pedestrian Walkway, Ward 04',
+    priorityScore: 74,
+    priorityLevel: PriorityLevel.HIGH,
+    isRecurring: false,
+    nearbyReportCount: 0,
+    assignedDepartmentId: deptMap['ROADS'],
+    assignedAuthorityId: roadsOfficer._id,
+    status: IssueStatus.UNDER_REVIEW,
+    createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000)
+  });
+
+  // Report 7: Main Water Pipeline Leakage (Critical)
+  const report7 = await IssueReport.create({
+    reportId: 'RI1007',
+    citizenId: citizen._id,
+    imageUrl: 'https://images.unsplash.com/photo-1584463699039-4458d98d022b?w=800',
+    categoryId: catMap['water_leakage'],
+    categoryName: 'water_leakage',
+    aiConfidence: 0.94,
+    description: 'High-pressure municipal supply line ruptured; street submerged under 2ft of potable water.',
+    location: { type: 'Point', coordinates: [77.602, 12.978] },
+    address: 'Tank Bund Road Junction, Ward 11',
+    priorityScore: 92,
+    priorityLevel: PriorityLevel.CRITICAL,
+    isRecurring: false,
+    nearbyReportCount: 0,
+    assignedDepartmentId: deptMap['WATER'],
+    status: IssueStatus.ASSIGNED,
+    createdAt: new Date(Date.now() - 4 * 3600 * 1000)
+  });
+
+  // Report 8: Open Stormwater Drain Hazard
+  const report8 = await IssueReport.create({
+    reportId: 'RI1008',
+    citizenId: citizen._id,
+    imageUrl: 'https://images.unsplash.com/photo-1596704017254-9b121068fb31?w=800',
+    categoryId: catMap['drainage'],
+    categoryName: 'drainage',
+    aiConfidence: 0.91,
+    description: 'Concrete culvert cover displaced; open sewer poses night hazard for two-wheelers.',
+    location: { type: 'Point', coordinates: [77.608, 12.974] },
+    address: 'Market Lane Storm Drain, Ward 02',
+    priorityScore: 56,
+    priorityLevel: PriorityLevel.MEDIUM,
+    isRecurring: false,
+    nearbyReportCount: 0,
+    assignedDepartmentId: deptMap['DRAINAGE'],
+    status: IssueStatus.SUBMITTED,
+    createdAt: new Date(Date.now() - 18 * 3600 * 1000)
+  });
+
+  // Report 9: Minor sidewalk settlement (Low Priority)
+  const report9 = await IssueReport.create({
+    reportId: 'RI1009',
+    citizenId: citizen._id,
+    imageUrl: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800',
+    categoryId: catMap['damaged_infrastructure'],
+    categoryName: 'damaged_infrastructure',
+    aiConfidence: 0.9,
+    description: 'Slightly uneven paver stone along residential pathway, no pedestrian injury risk.',
+    location: { type: 'Point', coordinates: [77.591, 12.969] },
+    address: 'Civil Lines 5th Cross, Ward 04',
+    priorityScore: 26,
+    priorityLevel: PriorityLevel.LOW,
+    isRecurring: false,
+    nearbyReportCount: 0,
+    assignedDepartmentId: deptMap['ROADS'],
+    status: IssueStatus.SUBMITTED,
+    createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000)
   });
 
   console.log('[Seed] Seeding Timeline Updates...');

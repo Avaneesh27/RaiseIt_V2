@@ -375,33 +375,106 @@ export const getPriorityLocations = async (req: AuthRequest, res: Response): Pro
  */
 export const getDepartmentAnalytics = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const { scope } = req.query;
     const deptFilter: any = {};
-    if (req.user?.role === UserRole.AUTHORITY && req.user.departmentId) {
+    if (scope === 'department' && req.user?.role === UserRole.AUTHORITY && req.user.departmentId) {
       deptFilter.assignedDepartmentId = req.user.departmentId;
     }
 
-    // Issues by category
-    const byCategory = await IssueReport.aggregate([
+    // Issues by category aggregation
+    const byCategoryAgg = await IssueReport.aggregate([
       { $match: deptFilter },
       { $group: { _id: '$categoryName', count: { $sum: 1 } } }
     ]);
 
-    // Issues by status
-    const byStatus = await IssueReport.aggregate([
+    // Issues by status aggregation
+    const byStatusAgg = await IssueReport.aggregate([
       { $match: deptFilter },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
-    // Issues by priority
-    const byPriority = await IssueReport.aggregate([
+    // Issues by priority aggregation
+    const byPriorityAgg = await IssueReport.aggregate([
       { $match: deptFilter },
       { $group: { _id: '$priorityLevel', count: { $sum: 1 } } }
     ]);
 
+    // Canonical list of all supported categories with dynamic zero-fill
+    const categoryLabels: Record<string, string> = {
+      pothole: 'Pothole / Road',
+      damaged_infrastructure: 'Broken Footpath',
+      garbage: 'Garbage Dump',
+      streetlight: 'Streetlight',
+      water_leakage: 'Water Leakage',
+      drainage: 'Open Drain'
+    };
+
+    const categoryMap: Record<string, number> = {};
+    Object.keys(categoryLabels).forEach((cat) => {
+      categoryMap[cat] = 0;
+    });
+
+    byCategoryAgg.forEach((c) => {
+      if (c._id) {
+        const key = String(c._id).toLowerCase();
+        categoryMap[key] = (categoryMap[key] || 0) + Number(c.count);
+      }
+    });
+
+    // Canonical list of all priority tiers with dynamic zero-fill
+    const priorityMap: Record<string, number> = {
+      CRITICAL: 0,
+      HIGH: 0,
+      MEDIUM: 0,
+      LOW: 0
+    };
+
+    byPriorityAgg.forEach((p) => {
+      if (p._id) {
+        const key = String(p._id).toUpperCase();
+        if (key in priorityMap) {
+          priorityMap[key] = Number(p.count);
+        } else {
+          priorityMap[key] = Number(p.count);
+        }
+      }
+    });
+
+    // Standard statuses
+    const statusMap: Record<string, number> = {
+      SUBMITTED: 0,
+      UNDER_REVIEW: 0,
+      ASSIGNED: 0,
+      IN_PROGRESS: 0,
+      RESOLVED: 0,
+      REJECTED: 0
+    };
+
+    byStatusAgg.forEach((s) => {
+      if (s._id) {
+        const key = String(s._id).toUpperCase();
+        if (key in statusMap) {
+          statusMap[key] = Number(s.count);
+        }
+      }
+    });
+
     res.json({
-      byCategory: byCategory.map((c) => ({ category: c._id, count: c.count })),
-      byStatus: byStatus.map((s) => ({ status: s._id, count: s.count })),
-      byPriority: byPriority.map((p) => ({ priority: p._id, count: p.count }))
+      byCategory: Object.keys(categoryMap).map((key) => ({
+        category: categoryLabels[key] || key,
+        rawCategory: key,
+        count: categoryMap[key]
+      })),
+      byStatus: Object.keys(statusMap)
+        .filter((st) => statusMap[st] > 0 || ['SUBMITTED', 'UNDER_REVIEW', 'IN_PROGRESS', 'RESOLVED'].includes(st))
+        .map((st) => ({
+          status: st,
+          count: statusMap[st]
+        })),
+      byPriority: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((pr) => ({
+        priority: pr,
+        count: priorityMap[pr]
+      }))
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });

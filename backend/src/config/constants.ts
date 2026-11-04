@@ -22,7 +22,8 @@ export enum IssueStatus {
 export enum PriorityLevel {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH'
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
 }
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
